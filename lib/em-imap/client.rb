@@ -431,18 +431,20 @@ module EventMachine
       # will be turned back on again.
       #
       def wait_for_new_emails(wrapper=Listener.new, &block)
-        wait_for_one_email.listen do |response|
-          wrapper.receive_event response
-        end.bind! do |response|
-          block.call response if response
-        end.bind! do
-          if wrapper.stopped?
-            wrapper.succeed
-          else
-            wait_for_new_emails(wrapper, &block)
+        search('ALL').bind! do |results|
+          wait_for_one_email.listen do |response|
+            wrapper.receive_event response
+          end.bind! do |response|
+            block.call response if response && response.data > results.reverse.first
+          end.bind! do
+            if wrapper.stopped?
+              wrapper.succeed
+            else
+              wait_for_new_emails(wrapper, &block)
+            end
+          end.errback do |*e|
+            wrapper.fail *e
           end
-        end.errback do |*e|
-          wrapper.fail *e
         end
 
         wrapper
